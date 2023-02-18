@@ -1,9 +1,9 @@
 This application reads a `docx` word document and outputs a new document that preserves document structure (headings) but replaces content with:
 
-1. An automatic **summary** (first detects language, then summarizes) OR
-2. A **compilation** of bold/underlined segments (they were **annotated by the user** with the intention of highlight the most relevant terms or ideas)
+1. An automatic **summary** (at this moment only in english language) OR
+2. A **compilation** of bold/underlined segments (they were **annotated by the user** with the intention of highlighting the most relevant terms or ideas)
 
-Additionally, we are able to output to two different formats (at the same time):
+Additionally, outputs to two different formats (one or both at the same time):
 
 + a new document (word format)
 + a concept map ([freeplane](https://docs.freeplane.org/) format)
