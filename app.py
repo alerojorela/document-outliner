@@ -27,10 +27,6 @@ def refresh_models():
     return gr.update(choices=models, value=models[0])
 
 
-def on_mode_change(mode):
-    is_llm = mode == "LLM Task"
-    return gr.update(visible=not is_llm), gr.update(visible=is_llm)
-
 
 def on_preset_change(preset):
     return PRESET_PROMPTS[preset]
@@ -92,36 +88,31 @@ with gr.Blocks(title="Document Outliner", theme=gr.themes.Soft()) as app:
 
     file_input = gr.File(label="Input document (.docx)", file_types=[".docx"])
 
-    mode = gr.Radio(
-        ["Extract Marks", "LLM Task"],
-        value="LLM Task",
-        label="Mode",
-    )
+    mode_state = gr.State("LLM Task")
 
-    # -- Marks options (hidden by default) --
-    with gr.Group(visible=False) as marks_group:
-        with gr.Row():
-            bold_cb      = gr.Checkbox(label="Bold",      value=True)
-            underline_cb = gr.Checkbox(label="Underline", value=False)
-
-    # -- LLM options --
-    with gr.Group(visible=True) as llm_group:
-        with gr.Row():
-            model_dd    = gr.Dropdown(
-                choices=initial_models, value=initial_model,
-                label="Ollama model", scale=4,
+    with gr.Tabs():
+        with gr.Tab("LLM Task") as tab_llm:
+            with gr.Row():
+                model_dd    = gr.Dropdown(
+                    choices=initial_models, value=initial_model,
+                    label="Ollama model", scale=4,
+                )
+                refresh_btn = gr.Button("↺ Refresh", scale=1, min_width=90)
+            preset_dd  = gr.Dropdown(
+                choices=list(PRESET_PROMPTS.keys()),
+                value="Summarize",
+                label="Preset prompt",
             )
-            refresh_btn = gr.Button("↺ Refresh", scale=1, min_width=90)
-        preset_dd  = gr.Dropdown(
-            choices=list(PRESET_PROMPTS.keys()),
-            value="Summarize",
-            label="Preset prompt",
-        )
-        prompt_box = gr.Textbox(
-            value=DEFAULT_PROMPT,
-            label="Prompt  — use {document} as placeholder for the section text",
-            lines=5,
-        )
+            prompt_box = gr.Textbox(
+                value=DEFAULT_PROMPT,
+                label="Prompt  — use {document} as placeholder for the section text",
+                lines=5,
+            )
+
+        with gr.Tab("Extract Marks") as tab_marks:
+            with gr.Row():
+                bold_cb      = gr.Checkbox(label="Bold",      value=True)
+                underline_cb = gr.Checkbox(label="Underline", value=False)
 
     # -- Output format --
     gr.Markdown("**Output formats**")
@@ -138,13 +129,15 @@ with gr.Blocks(title="Document Outliner", theme=gr.themes.Soft()) as app:
         out_mm   = gr.File(label="Download .mm",   visible=False)
 
     # -- Event wiring --
-    mode.change(on_mode_change, inputs=mode, outputs=[marks_group, llm_group])
+    tab_llm.select(lambda: "LLM Task",       outputs=mode_state)
+    tab_marks.select(lambda: "Extract Marks", outputs=mode_state)
+
     refresh_btn.click(refresh_models, outputs=model_dd)
     preset_dd.change(on_preset_change, inputs=preset_dd, outputs=prompt_box)
 
     run_btn.click(
         run,
-        inputs=[file_input, mode, bold_cb, underline_cb,
+        inputs=[file_input, mode_state, bold_cb, underline_cb,
                 model_dd, prompt_box, want_docx, want_mm],
         outputs=[out_docx, out_mm, preview_box],
     )
