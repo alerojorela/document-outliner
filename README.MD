@@ -1,14 +1,70 @@
 This application reads a `docx` word document and outputs a new document that preserves document structure (headings) but replaces content with:
 
-1. An automatic **summary** (at this moment only in english language) OR
-2. A **compilation** of bold/underlined segments (they were **annotated by the user** with the intention of highlighting the most relevant terms or ideas)
+1. An **LLM-generated result** for each section — summary, key points, translation, or any task defined via a custom prompt — powered by a local [Ollama](https://ollama.com/) instance. OR
+2. A **compilation** of bold/underlined segments (annotated by the user to highlight the most relevant terms or ideas)
 
-Additionally, outputs to two different formats (one or both at the same time):
+Output is available in two formats (one or both at the same time):
 
-+ a new document (word format)
-+ a concept map ([freeplane](https://docs.freeplane.org/) format)
+- a new document (Word `.docx`)
+- a concept map ([Freeplane](https://docs.freeplane.org/) `.mm`)
 
 This project has been highly motivated by learning activities in order to avoid a second reading.
+
+## Setup
+
+### Virtual environment
+
+```bash
+python -m venv .venv
+source .venv/bin/activate   # Windows: .venv\Scripts\activate
+```
+
+### Dependencies
+
+```bash
+pip install gradio requests python-docx freeplane-io
+```
+
+### Ollama
+
+Requires a running Ollama instance. The recommended setup with Docker (enables browser CORS):
+
+```bash
+docker run -d --name ollama_API --restart always \
+  -v ~/.IAmodels:/root/.ollama -p 11434:11434 --gpus all \
+  -e OLLAMA_ORIGINS='*' ollama/ollama
+```
+
+Pull a model before using the app, e.g.:
+
+```bash
+docker exec ollama_API ollama pull llama3.2
+```
+
+## Web interface
+
+```bash
+python app.py
+```
+
+Open `http://localhost:7860` in the browser.
+
+![Gradio UI](./capture.png)
+
+### Modes
+
+**LLM Task** — select an Ollama model, choose a preset prompt or write your own using `{document}` as the placeholder for each section's text:
+
+| Preset | Effect |
+|---|---|
+| Summarize | Concise summary of each section |
+| Key points | Bullet list of main ideas |
+| Critical analysis | Strengths and weaknesses |
+| Translate to Spanish / English | Section-by-section translation |
+
+**Extract Marks** — collects bold and/or underlined runs from each paragraph.
+
+Both output formats (`.docx` and `.mm`) can be downloaded simultaneously after processing.
 
 ## Samples
 
@@ -16,9 +72,7 @@ This project has been highly motivated by learning activities in order to avoid 
 
 ![original](./img/original_excerpt.png)
 
-### Summarization
-
-```python3 outliner.py ./data/sample.docx --docx ./data/output --freeplane ./data/output -s en```
+### LLM Task (summarization)
 
 ![freeplane_summary](./img/freeplane_summary.png)
 
@@ -26,47 +80,52 @@ This project has been highly motivated by learning activities in order to avoid 
 
 ### Marked words (bold, underlined)
 
-```python3 outliner.py ./data -b -u --docx ./data/output --freeplane ./data/output```
-
 ![freeplane_marked](./img/freeplane_marked.png)
 
 ![word_marked](./img/word_marked.png)
 
-
-
-## Setup
-
-This app requires some libraries
-
-```bash
-pip install python-docx freeplane-io transformers
-```
-
 ## Command line usage
 
-Run `outliner.py` with arguments in CLI
+```bash
+python outliner.py <input> [options]
+```
 
-+ Extract bold and underlined from file into a freeplane file inside some folder
+| Option | Description |
+|---|---|
+| `-b` / `--bold` | Extract bold text |
+| `-u` / `--underline` | Extract underlined text |
+| `-s` / `--summary` | Generate LLM output per section |
+| `-m` / `--model` | Ollama model name (default: `llama3.2`) |
+| `-d` / `--docx <path>` | Word output path (file or folder) |
+| `-f` / `--freeplane <path>` | Freeplane output path (file or folder) |
+| `-r` / `--recursive` | Process subfolders (folder input only) |
 
-​	```python3 outliner.py ./data/sample.docx -b -u --freeplane ./data/output```
+### Examples
 
-+ Extract bold and underlined content from file into a word and freeplane file inside different folders
+Extract bold and underlined into a Freeplane file:
 
-​	```python3 outliner.py ./data/sample.docx -b -u --docx ./data/docx --freeplane ./data/mm```
+```bash
+python outliner.py ./data/sample.docx -b -u --freeplane ./data/output
+```
 
-+ Creates a summary (in English) for each heading content into a word and freeplane file inside the same folder
+Generate an LLM summary into both Word and Freeplane:
 
-​	```python3 outliner.py ./data/sample.docx --docx ./data/output --freeplane ./data/output -s en```
+```bash
+python outliner.py ./data/sample.docx -s --model llama3.2 --docx ./data/output --freeplane ./data/output
+```
 
-+ Extract bold and underlined content from all word files inside a folder and its subfolders `-r` to the same folder
+Batch process a folder recursively:
 
-​	```python3 outliner.py ./data -r -b -u --docx ./data/output --freeplane ./data/output```
+```bash
+python outliner.py ./data -r -b -u --docx ./data/output --freeplane ./data/output
+```
 
 ## TO-DO
 
-- [x] summarization
-- [ ] use topic models
-- [ ] text to speech for more passive readings
-- [ ] highlighted text (yellow, ...)
-- [ ] implement more languages for summarization (e.g.: multilingual model)
-- [ ] ODF text documents (.odt) 
+- [x] Summarization
+- [x] Local LLM via Ollama (any task via custom prompt)
+- [x] Web interface (Gradio)
+- [ ] Highlighted text (yellow, …)
+- [ ] ODF text documents (`.odt`)
+- [ ] Use topic models
+- [ ] Text to speech for more passive readings

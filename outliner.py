@@ -35,7 +35,6 @@ SR. No.	Colour Name In WD_COLOR_INDEX	Colour Description
 16.	WHITE	White Colour
 17.	YELLOW	Yellow Colour
 """
-from summarizer import *
 
 extensions = ['*.odt', '*.docx']
 extensions = ['*.docx']
@@ -72,9 +71,7 @@ class Outliner:
             parents_stack = [self._output_midmapping.rootnode]
 
         def append_summary(text):
-            result = summarize(text, summarizer, max_length=min(120, int(len(text) * 0.3)))
-            summary = result[0]['summary_text']
-            # print('summary', summary)
+            summary = summarizer(text)  # summarizer is a callable: str -> str
 
             if doc_file:
                 self._output_document.add_paragraph(summary)
@@ -153,8 +150,10 @@ class Outliner:
         # if not doc_file and not freeplane_file:
 
 
-def process_file(input_file_path: Path, actions: dict,
-                 doc_path: Path = None, freeplane_path: Path = None, file_tag='outline'):
+def process_file(input_file_path: Path,
+        actions: dict,
+        doc_path: Path = None, freeplane_path: Path = None, file_tag='outline'):
+
     assert input_file_path.exists(), 'input file not found'
     outliner = Outliner(input_file_path)
 
@@ -167,6 +166,7 @@ def process_file(input_file_path: Path, actions: dict,
     print(input_file_path, ' --> ', doc_path, freeplane_path)
 
     outliner.extract_marks(doc_file=doc_path, freeplane_file=freeplane_path, **actions)
+    return doc_path, freeplane_path
 
 
 if __name__ == "__main__":
@@ -177,18 +177,20 @@ A compilation of bold/highlighted segments (they were annotated by the user firs
     # positional
     parser.add_argument('input', metavar='input file', type=str,
                         help='input path (file or folder) for highlighting compilation or automatic summarization')
-    # parser.add_argument('output', metavar='output file', type=str, help='output path (file or folder)')
-
-    # OUTPUT
-    parser.add_argument('-d', '--docx', type=str, help='Specify word document output path')
-    parser.add_argument('-f', '--freeplane', type=str, help='Specify freeplane document output path')
     parser.add_argument('-r', '--recursive', action='store_true',
                         help='Use it along a folder input and output: it makes available all files within subfolders')
 
     # conversion options
     parser.add_argument('-b', '--bold', action='store_true', help='filter bold content')
     parser.add_argument('-u', '--underline', action='store_true', help='filter underlined content')
-    parser.add_argument('-s', '--summary', type=str, help='creates a summary, it requires language code, eg.: en')
+    
+    # OUTPUT
+    # parser.add_argument('output', metavar='output file', type=str, help='output path (file or folder)')
+    parser.add_argument('-d', '--docx', type=str, help='Specify word document output path')
+    parser.add_argument('-f', '--freeplane', type=str, help='Specify freeplane document output path')
+
+    parser.add_argument('-s', '--summary', action='store_true', help='summarize each section using an Ollama LLM')
+    parser.add_argument('-m', '--model', type=str, default='llama3.2', help='Ollama model name (default: llama3.2)')
     # optional & mutually exclusive
     # parser.add_argument("-a", "--action", type=str, default='marks', choices=["marks", "summary"], help="Choose action to process document content")
 
@@ -199,19 +201,10 @@ A compilation of bold/highlighted segments (they were annotated by the user firs
     input_path = Path(args.input)
     assert input_path.exists(), 'input file/folder not found'
 
-    if args.summary:
-        summarizer = load_pipeline(language=args.summary)
-        actions = {'summarizer': summarizer}
-        file_tag = 'summary'
-    elif args.bold or args.underline:
-        actions = {'select_bold': args.bold, 'select_underline': args.underline}
-        file_tag = 'annotation'
-    else:
-        raise SyntaxError('some arguments must be provided to indicate action on content: (-b -u | -s <lang>)')
-
     if input_path.is_file():
         files = [input_path]
     elif input_path.is_dir():
+        # output must be a folder too
         if args.docx:
             assert Path(args.docx).is_dir()
         if args.freeplane:
@@ -222,7 +215,19 @@ A compilation of bold/highlighted segments (they were annotated by the user firs
             files = input_path.rglob('*.docx')
         else:
             files = input_path.glob('*.docx')
-        assert files, 'Not .docx files found in ' + str(path2.resolve())
+        assert files, 'No compatible files found in ' + str(path2.resolve())
+
+    if args.summary:
+        from llm import run_task, DEFAULT_PROMPT
+        model = args.model or 'llama3.2'
+        actions = {'summarizer': lambda text: run_task(text, DEFAULT_PROMPT, model)}
+        file_tag = 'summary'
+    elif args.bold or args.underline:
+        actions = {'select_bold': args.bold, 'select_underline': args.underline}
+        file_tag = 'annotation'
+    else:
+        raise SyntaxError('some arguments must be provided to indicate action on content: (-b -u | -s <lang>)')
+
 
     for file_path in files:
         process_file(file_path, actions,
