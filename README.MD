@@ -1,12 +1,14 @@
-This application reads a `docx` word document and outputs a new document that preserves document structure (headings) but replaces content with:
+This application reads `.docx` or `.odt` documents and outputs a new document that preserves the structure (headings) but replaces content with:
 
 1. An **LLM-generated result** for each section — summary, key points, translation, or any task defined via a custom prompt — powered by a local [Ollama](https://ollama.com/) instance. OR
-2. A **compilation** of bold/underlined segments (annotated by the user to highlight the most relevant terms or ideas)
+2. A **compilation** of bold / italic / underlined segments annotated by the user to highlight the most relevant terms or ideas.
+
+Multiple documents can be uploaded and processed together as a single merged document.
 
 Output is available in two formats (one or both at the same time):
 
-- a new document (Word `.docx`)
-- a concept map ([Freeplane](https://docs.freeplane.org/) `.mm`)
+- **Document** — Word `.docx` or Markdown `.md` (when Markdown mode is enabled)
+- **Outline** — concept map ([Freeplane](https://docs.freeplane.org/) `.mm`)
 
 This project has been highly motivated by learning activities in order to avoid a second reading.
 
@@ -23,6 +25,12 @@ source .venv/bin/activate   # Windows: .venv\Scripts\activate
 
 ```bash
 pip install gradio requests python-docx freeplane-io
+```
+
+LibreOffice is required to process `.odt` files:
+
+```bash
+sudo apt install libreoffice   # Debian/Ubuntu
 ```
 
 ### Ollama
@@ -62,9 +70,14 @@ Open `http://localhost:7860` in the browser.
 | Critical analysis | Strengths and weaknesses |
 | Translate to Spanish / English | Section-by-section translation |
 
-**Extract Marks** — collects bold and/or underlined runs from each paragraph.
+Options:
 
-Both output formats (`.docx` and `.mm`) can be downloaded simultaneously after processing.
+- **Send document as Markdown** — preserves bold/italic formatting in the text sent to the model; output is saved as `.md`
+- **Send full document in a single prompt** — instead of section by section, the entire document is sent in one call (useful for cross-document synthesis; requires a model with sufficient context, e.g. Gemma 3 has 128K tokens ≈ 300 dense pages)
+
+**Extract Marks** — collects bold, italic and/or underlined runs from each paragraph.
+
+Both output formats (Document and Outline) can be downloaded simultaneously after processing.
 
 ## Samples
 
@@ -93,22 +106,23 @@ python outliner.py <input> [options]
 | Option | Description |
 |---|---|
 | `-b` / `--bold` | Extract bold text |
+| `-i` / `--italic` | Extract italic text |
 | `-u` / `--underline` | Extract underlined text |
 | `-s` / `--summary` | Generate LLM output per section |
 | `-m` / `--model` | Ollama model name (default: `llama3.2`) |
-| `-d` / `--docx <path>` | Word output path (file or folder) |
-| `-f` / `--freeplane <path>` | Freeplane output path (file or folder) |
+| `-d` / `--docx <path>` | Document output path (file or folder) |
+| `-f` / `--freeplane <path>` | Outline output path (file or folder) |
 | `-r` / `--recursive` | Process subfolders (folder input only) |
 
 ### Examples
 
-Extract bold and underlined into a Freeplane file:
+Extract bold and italic into a Freeplane outline:
 
 ```bash
-python outliner.py ./data/sample.docx -b -u --freeplane ./data/output
+python outliner.py ./data/sample.docx -b -i --freeplane ./data/output
 ```
 
-Generate an LLM summary into both Word and Freeplane:
+Generate an LLM summary into both document and outline:
 
 ```bash
 python outliner.py ./data/sample.docx -s --model llama3.2 --docx ./data/output --freeplane ./data/output
@@ -125,7 +139,11 @@ python outliner.py ./data -r -b -u --docx ./data/output --freeplane ./data/outpu
 - [x] Summarization
 - [x] Local LLM via Ollama (any task via custom prompt)
 - [x] Web interface (Gradio)
+- [x] Italic filter
+- [x] ODT document support
+- [x] Multiple documents merged into one
+- [x] Markdown output
+- [x] Single-prompt mode (full document at once)
 - [ ] Highlighted text (yellow, …)
-- [ ] ODF text documents (`.odt`)
 - [ ] Use topic models
 - [ ] Text to speech for more passive readings
